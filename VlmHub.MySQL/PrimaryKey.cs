@@ -4,10 +4,6 @@ namespace VlmHub.MySQL;
 
 public sealed class PrimaryKeyService
 {
-    public required string Name { get; init; }
-    public required string DataType { get; init; }
-    public required string ColumnType { get; init; }
-    public int Position { get; init; }
     private readonly MySqlServer _server;
 
     public PrimaryKeyService(MySqlServer server)
@@ -23,8 +19,7 @@ public sealed class PrimaryKeyService
                 "No hay base de datos seleccionada.");
         }
 
-        await using var connection =
-            await _server.TryOpenConnection();
+        await using var connection = await _server.TryOpenConnection();
 
         const string sql = """
             SELECT
@@ -43,22 +38,15 @@ public sealed class PrimaryKeyService
             ORDER BY k.ORDINAL_POSITION;
             """;
 
-        await using var command =
-            new MySqlCommand(sql, connection);
+        await using var command = new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue(
-            "@database",
-            _server.DataBase);
+        command.Parameters.AddWithValue("@database", _server.DataBase);
 
-        command.Parameters.AddWithValue(
-            "@table",
-            table);
+        command.Parameters.AddWithValue("@table", table);
 
-        await using var reader =
-            await command.ExecuteReaderAsync();
+        await using var reader = await command.ExecuteReaderAsync();
 
-        var columns =
-            new List<PrimaryKeyColumn>();
+        var columns = new List<PrimaryKeyColumn>();
 
         while (await reader.ReadAsync())
         {
@@ -78,10 +66,7 @@ public sealed class PrimaryKeyService
 public sealed class PrimaryKeyColumn
 {
     public required string Name { get; init; }
-
     public required string DataType { get; init; }
-
     public required string ColumnType { get; init; }
-
     public int Position { get; init; }
 }
