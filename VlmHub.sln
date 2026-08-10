@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VlmHub.Sql", "VlmHub.Sql\Vl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VlmHub.Console", "VlmHub.Console\VlmHub.Console.csproj", "{3D035D71-8D9D-40D2-94AF-9B6474D124AF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VlmHub.Balancer", "VlmHub.Balancer\VlmHub.Balancer.csproj", "{EEF4DDE6-0752-434A-8D76-B97E14D73957}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{3D035D71-8D9D-40D2-94AF-9B6474D124AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3D035D71-8D9D-40D2-94AF-9B6474D124AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3D035D71-8D9D-40D2-94AF-9B6474D124AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEF4DDE6-0752-434A-8D76-B97E14D73957}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEF4DDE6-0752-434A-8D76-B97E14D73957}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEF4DDE6-0752-434A-8D76-B97E14D73957}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEF4DDE6-0752-434A-8D76-B97E14D73957}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
