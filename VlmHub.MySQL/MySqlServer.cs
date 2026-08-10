@@ -1,95 +1,181 @@
 using MySqlConnector;
-using System.Data;
+using VlmHub.MySQL.Models;
 
 namespace VlmHub.MySQL;
 
+/// <summary>
+/// Encapsula la conexión y las consultas de catálogo necesarias para navegar
+/// por un servidor MySQL.
+/// </summary>
 public sealed class MySqlServer
 {
-    public string? ServerName {get; set;}
-    public string ServerHost {get; init;}
-    public string User {get; init;}
-    private readonly string _psswd;
-    public string? DataBase {get; private set;}
-    private MySqlConnectionStringBuilder Builder{get; set;}
+    private readonly MySqlConnectionStringBuilder _builder;
 
-    public MySqlServer(string serverHost, string user, string psswd)
+    public string ServerHost => _builder.Server;
+    public string User => _builder.UserID;
+    public string? Database { get; private set; }
+
+    public MySqlServer(string serverHost, string user, string password)
     {
-        ServerHost = serverHost;
-        User = user;
-        _psswd = psswd;
-        Builder = new MySqlConnectionStringBuilder
+        _builder = new MySqlConnectionStringBuilder
         {
-            Server = ServerHost,
-            UserID = User,
-            Password = _psswd
+            Server = serverHost,
+            UserID = user,
+            Password = password,
+            ConnectionTimeout = 10,
+            DefaultCommandTimeout = 30
         };
-
     }
 
+    /// <summary>
+    /// Cambia la base de datos que utilizarán las consultas posteriores.
+    /// La existencia/permisos se comprueban al ejecutar la siguiente consulta.
+    /// </summary>
     public void SetDatabase(string database)
     {
-        DataBase = database;
-        Builder = new MySqlConnectionStringBuilder
-        {
-            Server = ServerHost,
-            UserID = User,
-            Password = _psswd,
-            Database = DataBase
-        };
+        Database = database;
+        _builder.Database = database;
     }
 
-    internal async Task<MySqlConnection> TryOpenConnection()
+    /// <summary>
+    /// Devuelve únicamente las bases de datos visibles para el usuario conectado.
+    /// Esta consulta también sirve para comprobar que las credenciales permiten
+    /// conectarse al servidor.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetDatabasesAsync(
+        CancellationToken cancellationToken = default)
     {
-        var connection = new MySqlConnection(Builder.ConnectionString);
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = new MySqlCommand("SHOW DATABASES;", connection);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var databases = new List<string>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            databases.Add(reader.GetString(0));
+        }
+
+        return databases;
+    }
+
+    /// <summary>
+    /// Devuelve las tablas físicas de la base de datos seleccionada.
+    /// Las vistas quedan fuera porque VLMHub procesará tablas.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetTablesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureDatabaseSelected();
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        const string sql = """
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = @database
+              AND TABLE_TYPE = 'BASE TABLE'
+            ORDER BY TABLE_NAME;
+            """;
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@database", Database);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var tables = new List<string>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            tables.Add(reader.GetString("TABLE_NAME"));
+        }
+
+        return tables;
+    }
+
+    /// <summary>
+    /// Obtiene la información mínima necesaria de las columnas, incluyendo
+    /// la posición dentro de una PK simple o compuesta.
+    /// </summary>
+    public async Task<IReadOnlyList<ColumnInfo>> GetColumnsAsync(
+        string tableName,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureDatabaseSelected();
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+
+        const string sql = """
+            SELECT
+                c.COLUMN_NAME,
+                c.DATA_TYPE,
+                c.COLUMN_TYPE,
+                c.ORDINAL_POSITION,
+                c.IS_NULLABLE,
+                pk.ORDINAL_POSITION AS PK_POSITION
+            FROM INFORMATION_SCHEMA.COLUMNS c
+            LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE pk
+                ON pk.TABLE_SCHEMA = c.TABLE_SCHEMA
+               AND pk.TABLE_NAME = c.TABLE_NAME
+               AND pk.COLUMN_NAME = c.COLUMN_NAME
+               AND pk.CONSTRAINT_NAME = 'PRIMARY'
+            WHERE c.TABLE_SCHEMA = @database
+              AND c.TABLE_NAME = @table
+            ORDER BY c.ORDINAL_POSITION;
+            """;
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@database", Database);
+        command.Parameters.AddWithValue("@table", tableName);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var columns = new List<ColumnInfo>();
+        var pkPositionOrdinal = reader.GetOrdinal("PK_POSITION");
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            columns.Add(new ColumnInfo
+            {
+                Name = reader.GetString("COLUMN_NAME"),
+                DataType = reader.GetString("DATA_TYPE"),
+                ColumnType = reader.GetString("COLUMN_TYPE"),
+                Position = reader.GetInt32("ORDINAL_POSITION"),
+                IsNullable = string.Equals(
+                    reader.GetString("IS_NULLABLE"),
+                    "YES",
+                    StringComparison.OrdinalIgnoreCase),
+                PrimaryKeyPosition = reader.IsDBNull(pkPositionOrdinal)
+                    ? null
+                    : reader.GetInt32(pkPositionOrdinal)
+            });
+        }
+
+        return columns;
+    }
+
+    private async Task<MySqlConnection> OpenConnectionAsync(
+        CancellationToken cancellationToken)
+    {
+        var connection = new MySqlConnection(_builder.ConnectionString);
+
         try
         {
-            await connection.OpenAsync();
+            await connection.OpenAsync(cancellationToken);
             return connection;
         }
         catch
         {
             await connection.DisposeAsync();
-            throw new InvalidOperationException("Conexión rechazada");
+            throw;
         }
     }
 
-    public async Task<List<string>> GetDatabasesAsync()
+    private void EnsureDatabaseSelected()
     {
-        await using var connection = await TryOpenConnection();
-
-        var databases = new List<string>();
-        string sql = "SHOW DATABASES;";
-        var command = new MySqlCommand(sql, connection);
-
-        await using var reader = await command.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
+        if (string.IsNullOrWhiteSpace(Database))
         {
-            databases.Add(reader.GetString(0));
+            throw new InvalidOperationException("No hay una base de datos seleccionada.");
         }
-        return databases;
     }
-
-    public async Task<List<string>> GetTablesAsync()
-    {
-        if (DataBase == null)
-        {
-            throw new InvalidOperationException("No hay base de datos seleccionada");
-        }
-
-        await using var connection = await TryOpenConnection();
-
-        var tables = new List<string>();
-        string sql = "SHOW TABLES";
-        var command = new MySqlCommand(sql, connection);
-
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            tables.Add(reader.GetString(0));
-        }
-        return tables;
-    }
-
 }
-
