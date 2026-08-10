@@ -1,0 +1,21 @@
+[
+    {
+        "Name": "VLM-Server_01",
+        "URL": "172.20.20.93",
+        "port": "5080",
+        "Description": "Servicio levantado en la maquina virtual de la SSFFAA."
+    }
+    ,
+    {
+        "Name": "VLM-Server_02",
+        "URL": "172.20.20.94",
+        "port": "5080",
+        "Description": "Servicio levantado en la maquina virtual de la SSFFAA."
+    },
+    {
+        "Name": "VLM-Server_03",
+        "URL": "172.20.100.53",
+        "port": "5080",
+        "Description": "Servicio levantado en el equipo de prueba." 
+    }
+]

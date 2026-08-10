@@ -1,12 +1,13 @@
-using MySqlConnector;
+using Microsoft.Data.SqlClient;
 using Spectre.Console;
-using VlmHub.MySQL.Models;
+using VlmHub.Sql.Models;
 
 namespace VlmHub.Console.Views;
 
+
 /// <summary>
-/// Toda la presentación de la consola vive aquí. De esta forma el flujo de la
-/// aplicación no queda acoplado a colores, paneles o tablas de Spectre.Console.
+/// Centraliza toda la presentación de VLMHub en consola.
+/// No contiene consultas SQL ni decide el orden del flujo de la aplicación.
 /// </summary>
 public static class ConsoleUi
 {
@@ -32,14 +33,14 @@ public static class ConsoleUi
 
     public static (string Host, string User, string Password) PromptConnection()
     {
-        ShowHeader("Conexión a MySQL");
+        ShowHeader("Conexión a SQL Server");
 
         var panel = new Panel(
             new Markup(
-                "[bold white]Conecta VLMHub a un servidor MySQL[/]\n\n" +
-                "[grey]Las credenciales se utilizan únicamente para abrir la conexión actual.[/]"))
+                "[bold white]Conecta VLMHub a un servidor SQL Server[/]\n\n" +
+                "[grey]Las credenciales se utilizan únicamente durante la sesión actual.[/]"))
         {
-            Header = new PanelHeader("[grey] SERVIDOR [/]") ,
+            Header = new PanelHeader("[grey] SERVIDOR [/]"),
             Border = BoxBorder.Rounded,
             Padding = new Padding(2, 1)
         };
@@ -91,7 +92,8 @@ public static class ConsoleUi
     {
         while (true)
         {
-            var input = AnsiConsole.Ask<string>($"\n[cyan]{Markup.Escape(prompt)}[/] ").Trim();
+            var input = AnsiConsole.Ask<string>(
+                $"\n[cyan]{Markup.Escape(prompt)}[/] ").Trim();
 
             if (int.TryParse(input, out var selectedIndex) &&
                 selectedIndex >= 1 &&
@@ -130,6 +132,7 @@ public static class ConsoleUi
         for (var index = 0; index < columns.Count; index++)
         {
             var column = columns[index];
+
             var key = column.IsPrimaryKey
                 ? $"[yellow]PK #{column.PrimaryKeyPosition}[/]"
                 : "[grey]-[/]";
@@ -151,7 +154,8 @@ public static class ConsoleUi
         }
 
         AnsiConsole.Write(table);
-        AnsiConsole.MarkupLine("\n[grey]Las columnas marcadas como PK se muestran solo como información y no pueden seleccionarse.[/]");
+        AnsiConsole.MarkupLine(
+            "\n[grey]Las columnas marcadas como PK se muestran solo como información y no pueden seleccionarse.[/]");
     }
 
     public static ColumnInfo PromptColumn(IReadOnlyList<ColumnInfo> columns)
@@ -186,7 +190,8 @@ public static class ConsoleUi
 
             if (selected.IsPrimaryKey)
             {
-                ShowWarning("La clave primaria identifica los registros y no puede seleccionarse como columna documental.");
+                ShowWarning(
+                    "La clave primaria identifica los registros y no puede seleccionarse como columna documental.");
                 continue;
             }
 
@@ -203,7 +208,8 @@ public static class ConsoleUi
             .StartAsync(message, _ => operation());
     }
 
-    public static void WaitForRetry(string message = "Presiona Enter para intentarlo nuevamente.")
+    public static void WaitForRetry(
+        string message = "Presiona Enter para intentarlo nuevamente.")
     {
         AnsiConsole.MarkupLine($"\n[grey]{Markup.Escape(message)}[/]");
         System.Console.ReadLine();
@@ -213,17 +219,29 @@ public static class ConsoleUi
     {
         var message = exception switch
         {
-            MySqlException { Number: 1045 } =>
-                "MySQL rechazó el usuario o la contraseña.",
+            // Error de autenticación de SQL Server.
+            SqlException { Number: 18456 } =>
+                "SQL Server rechazó el usuario o la contraseña.",
 
-            MySqlException { Number: 1049 } =>
-                "La base de datos seleccionada ya no está disponible.",
+            // La base indicada no existe, está desconectada o el login no tiene acceso.
+            SqlException { Number: 4060 } =>
+                "No se pudo abrir la base de datos seleccionada. Puede no existir o el usuario no tiene acceso.",
 
-            MySqlException { Number: 1146 } =>
-                "La tabla seleccionada ya no existe o no está disponible.",
+            // Objeto inexistente. Se conserva por robustez aunque las consultas de catálogo
+            // normalmente devuelven una colección vacía si la tabla desaparece.
+            SqlException { Number: 208 } =>
+                "La tabla u objeto solicitado ya no existe o no está disponible.",
 
-            MySqlException mysqlException =>
-                $"MySQL respondió con un error: {mysqlException.Message}",
+            // Permiso denegado sobre algún objeto o catálogo.
+            SqlException { Number: 229 } =>
+                "El usuario no tiene permisos suficientes para realizar esta consulta.",
+
+            // Timeout de SQL Server / SqlClient.
+            SqlException { Number: -2 } =>
+                "SQL Server tardó demasiado en responder y la operación expiró.",
+
+            SqlException sqlException =>
+                $"SQL Server respondió con un error ({sqlException.Number}): {sqlException.Message}",
 
             OperationCanceledException =>
                 "La operación fue cancelada.",
@@ -260,11 +278,12 @@ public static class ConsoleUi
         AnsiConsole.Write(
             new Panel(grid)
             {
-                Header = new PanelHeader("[green] LISTO [/]") ,
+                Header = new PanelHeader("[green] LISTO [/]"),
                 Border = BoxBorder.Rounded,
                 Padding = new Padding(2, 1)
             });
 
-        AnsiConsole.MarkupLine("\n[green]✓ VLMHub ya tiene definido el origen que se procesará.[/]");
+        AnsiConsole.MarkupLine(
+            "\n[green]✓ VLMHub ya tiene definido el origen que se procesará.[/]");
     }
 }

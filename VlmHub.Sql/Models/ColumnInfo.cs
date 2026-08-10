@@ -1,7 +1,7 @@
-namespace VlmHub.MySQL.Models;
+namespace VlmHub.Sql.Models;
 
 /// <summary>
-/// Describe una columna de una tabla MySQL.
+/// Describe una columna de una tabla SQL.
 /// </summary>
 public sealed class ColumnInfo
 {

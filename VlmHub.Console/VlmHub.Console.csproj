@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\VlmHub.MySQL\VlmHub.MySQL.csproj" />
+    <ProjectReference Include="..\VlmHub.Sql\VlmHub.Sql.csproj" />
   </ItemGroup>
 
   <ItemGroup>

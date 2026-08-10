@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VlmHub.Console", "VlmHub.Console\VlmHub.Console.csproj", "{17B4B943-F375-4355-A3A9-E4D84DCBF351}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VlmHub.Sql", "VlmHub.Sql\VlmHub.Sql.csproj", "{39314393-8311-4E18-9CFF-1C5D6EC38B30}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VlmHub.MySQL", "VlmHub.MySQL\VlmHub.MySQL.csproj", "{5253580F-0A63-4A02-A15C-8796DDA7DF4B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VlmHub.Console", "VlmHub.Console\VlmHub.Console.csproj", "{3D035D71-8D9D-40D2-94AF-9B6474D124AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -16,13 +16,13 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{17B4B943-F375-4355-A3A9-E4D84DCBF351}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{17B4B943-F375-4355-A3A9-E4D84DCBF351}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{17B4B943-F375-4355-A3A9-E4D84DCBF351}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{17B4B943-F375-4355-A3A9-E4D84DCBF351}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5253580F-0A63-4A02-A15C-8796DDA7DF4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5253580F-0A63-4A02-A15C-8796DDA7DF4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5253580F-0A63-4A02-A15C-8796DDA7DF4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5253580F-0A63-4A02-A15C-8796DDA7DF4B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{39314393-8311-4E18-9CFF-1C5D6EC38B30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39314393-8311-4E18-9CFF-1C5D6EC38B30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39314393-8311-4E18-9CFF-1C5D6EC38B30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39314393-8311-4E18-9CFF-1C5D6EC38B30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D035D71-8D9D-40D2-94AF-9B6474D124AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D035D71-8D9D-40D2-94AF-9B6474D124AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D035D71-8D9D-40D2-94AF-9B6474D124AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D035D71-8D9D-40D2-94AF-9B6474D124AF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
