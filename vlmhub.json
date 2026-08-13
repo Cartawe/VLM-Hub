@@ -1,0 +1,18 @@
+{
+  "servers_file": "servidores.json",
+  "model_priority": [
+    "PaddleOCR-VL-1.6-f16",
+    "Qwen3VL-2B-Instruct-F16",
+    "Deepseek-OCR-2-q8"
+  ],
+  "max_attempts": 3,
+  "max_documents_in_memory": 32,
+  "max_parallel_document_preparation": 2,
+  "max_parallel_downloads": 4,
+  "download_max_attempts": 3,
+  "download_timeout_seconds": 90,
+  "sql_upload_max_attempts": 3,
+  "sql_upload_retry_seconds": 3,
+  "sql_upload_cooldown_seconds": 30,
+  "keep_temporary_files_on_failure": false
+}

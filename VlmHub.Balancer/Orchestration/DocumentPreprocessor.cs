@@ -1,6 +1,7 @@
 using PDFtoImage;
 using SkiaSharp;
 using VlmHub.Balancer.Configuration;
+using VlmHub.Balancer.Logging;
 using VlmHub.Balancer.Models;
 
 namespace VlmHub.Balancer.Orchestration;
@@ -8,10 +9,12 @@ namespace VlmHub.Balancer.Orchestration;
 internal sealed class DocumentPreprocessor
 {
     private readonly ProcessingOptions _options;
+    private readonly BalancerLogger _logger;
 
-    public DocumentPreprocessor(ProcessingOptions options)
+    public DocumentPreprocessor(ProcessingOptions options, BalancerLogger logger)
     {
         _options = options;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<PreparedDocument>> PrepareAsync(
@@ -20,40 +23,72 @@ internal sealed class DocumentPreprocessor
         CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(workingDirectory);
-        var prepared = new List<PreparedDocument>();
+        var prepared = new PreparedDocument[documentPaths.Count];
 
-        foreach (var documentPath in documentPaths)
+        _logger.Info(
+            "temp.directory.created",
+            "Directorio temporal del lote creado.",
+            data: new Dictionary<string, object?> { ["working_directory"] = workingDirectory });
+
+        var parallelOptions = new ParallelOptions
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var isPdf = Path.GetExtension(documentPath)
-                .Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+            CancellationToken = cancellationToken,
+            MaxDegreeOfParallelism = Math.Max(1, _options.MaxParallelDocumentPreparation)
+        };
 
-            try
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, documentPaths.Count),
+            parallelOptions,
+            async (index, token) =>
             {
-                prepared.Add(isPdf
-                    ? await PreparePdfAsync(documentPath, workingDirectory, cancellationToken)
-                    : PrepareImage(documentPath));
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                // Un documento corrupto o inaccesible no derriba el resto del lote.
-                prepared.Add(new PreparedDocument
+                var documentPath = documentPaths[index];
+                var isPdf = Path.GetExtension(documentPath)
+                    .Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+
+                try
                 {
-                    SourcePath = documentPath,
-                    Type = isPdf ? "pdf" : "imagen",
-                    PreparationError = exception.Message
-                });
-            }
-        }
+                    var document = isPdf
+                        ? await PreparePdfAsync(documentPath, workingDirectory, token)
+                        : PrepareImage(documentPath);
+
+                    prepared[index] = document;
+
+                    _logger.Info(
+                        "document.prepare.completed",
+                        $"Documento preparado en {document.Units.Count} unidad(es).",
+                        new LogContext(DocumentId: document.Id, SourcePath: document.SourcePath),
+                        new Dictionary<string, object?>
+                        {
+                            ["document_type"] = document.Type,
+                            ["units"] = document.Units.Count
+                        });
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    var failed = new PreparedDocument
+                    {
+                        SourcePath = documentPath,
+                        Type = isPdf ? "pdf" : "imagen",
+                        PreparationError = exception.Message
+                    };
+                    prepared[index] = failed;
+
+                    _logger.Error(
+                        "document.prepare.failed",
+                        "No fue posible preparar el documento; el lote continuará.",
+                        exception,
+                        new LogContext(DocumentId: failed.Id, SourcePath: documentPath));
+                }
+            });
 
         return prepared;
     }
 
-    private static PreparedDocument PrepareImage(string documentPath)
+    private PreparedDocument PrepareImage(string documentPath)
     {
         var document = new PreparedDocument
         {
@@ -81,6 +116,12 @@ internal sealed class DocumentPreprocessor
     {
         return Task.Run(() =>
         {
+            if (!OperatingSystem.IsLinux() && !OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException(
+                    "La rasterización PDF de VLMHub está soportada en Windows y Linux.");
+            }
+
             var document = new PreparedDocument
             {
                 SourcePath = documentPath,
@@ -88,7 +129,17 @@ internal sealed class DocumentPreprocessor
             };
 
             var pdfDirectory = Path.Combine(workingDirectory, document.Id.ToString("N"));
+            document.StateDirectory = pdfDirectory;
             Directory.CreateDirectory(pdfDirectory);
+
+            _logger.Info(
+                "pdf.temp_directory.created",
+                "Directorio temporal del PDF creado.",
+                new LogContext(
+                    DocumentId: document.Id,
+                    SourcePath: documentPath,
+                    TemporaryPath: pdfDirectory),
+                new Dictionary<string, object?> { ["pdf_dpi"] = _options.PdfDpi });
 
             var units = new List<ProcessingUnit>();
             var renderOptions = new RenderOptions(Dpi: _options.PdfDpi, UseTiling: true);

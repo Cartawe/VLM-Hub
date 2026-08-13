@@ -1,7 +1,14 @@
+using VlmHub.Balancer.Logging;
 using VlmHub.Console.App;
+using VlmHub.Console.Processing;
 using VlmHub.Console.Views;
 
+var commandLineArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
+var isWorker = commandLineArgs.Length >= 2 &&
+               string.Equals(commandLineArgs[0], "--worker", StringComparison.OrdinalIgnoreCase);
+
 using var cancellationSource = new CancellationTokenSource();
+using var logger = new VlmHubLogger(Path.Combine(Environment.CurrentDirectory, "logs"));
 
 Console.CancelKeyPress += (_, eventArgs) =>
 {
@@ -9,18 +16,42 @@ Console.CancelKeyPress += (_, eventArgs) =>
     cancellationSource.Cancel();
 };
 
+if (isWorker)
+{
+    try
+    {
+        Environment.ExitCode = await ProcessingWorker.RunAsync(
+            commandLineArgs[1],
+            logger,
+            cancellationSource.Token);
+    }
+    catch (Exception exception)
+    {
+        logger.Error(
+            "WORKER",
+            "worker.bootstrap_failed",
+            "El worker no pudo inicializarse.",
+            exception);
+        Environment.ExitCode = 1;
+    }
+
+    return;
+}
+
 try
 {
-    var app = new VlmHubConsoleApp();
+    logger.Info("CONSOLE", "application.started", "VLMHub iniciado.");
+    var app = new VlmHubConsoleApp(logger);
     await app.RunAsync(cancellationSource.Token);
+    logger.Info("CONSOLE", "application.stopped", "VLMHub finalizado.");
 }
 catch (OperationCanceledException)
 {
+    logger.Warning("CONSOLE", "application.cancelled", "VLMHub fue detenido por el usuario.");
     ConsoleUi.ShowWarning("VLMHub fue detenido por el usuario.");
 }
 catch (Exception exception)
 {
-    // Última barrera de seguridad: un error no manejado se presenta de forma
-    // controlada en vez de imprimir un stack trace crudo en la consola.
+    logger.Error("CONSOLE", "application.fatal_error", "Error no controlado en el proceso principal.", exception);
     ConsoleUi.ShowError(exception);
 }

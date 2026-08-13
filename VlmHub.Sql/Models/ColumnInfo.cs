@@ -10,6 +10,7 @@ public sealed class ColumnInfo
     public required string ColumnType { get; init; }
     public int Position { get; init; }
     public bool IsNullable { get; init; }
+    public string? Collation { get; init; }
     public int? PrimaryKeyPosition { get; init; }
 
     /// <summary>

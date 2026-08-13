@@ -50,3 +50,19 @@ public sealed class VlmModelUnavailableException : VlmApiException
         Model = model;
     }
 }
+
+public sealed class VlmProcessingTechnicalException : VlmApiException
+{
+    public VlmProcessingTechnicalException(string message, HttpStatusCode? statusCode = null)
+        : base(message, statusCode)
+    {
+    }
+}
+
+public sealed class VlmServerRecoveryException : VlmApiException
+{
+    public VlmServerRecoveryException(string message, HttpStatusCode? statusCode = null)
+        : base(message, statusCode)
+    {
+    }
+}
