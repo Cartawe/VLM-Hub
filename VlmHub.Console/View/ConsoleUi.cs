@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Spectre.Console;
+using System.Text;
 using VlmHub.Sql.Models;
 using VlmHub.Console.Processing;
 
@@ -458,6 +459,49 @@ internal static class ConsoleUi
         AnsiConsole.MarkupLine(
             "\n[green]✓ La selección quedó congelada en su manifiesto de procesamiento.[/]");
     }
+
+    public static async Task ShowPendingPrimaryKeyRangesAsync(IAsyncEnumerable<string> ranges, CancellationToken cancellationToken = default)
+    {
+        AnsiConsole.MarkupLine("\n[bold yellow]Filas sin procesamiento exitoso[/]");
+
+        AnsiConsole.MarkupLine("[grey]Formato compatible con el selector de PK:[/]\n");
+
+        var buffer = new StringBuilder(8192);
+
+        var first = true;
+        long rangeCount = 0;
+
+        await foreach (var range in ranges.WithCancellation(cancellationToken))
+        {
+            var separator = first ? string.Empty : "; ";
+
+            if (buffer.Length + separator.Length + range.Length > 8192)
+            {
+                AnsiConsole.Write(new Text(buffer.ToString()));
+                buffer.Clear();
+            }
+            buffer.Append(separator);
+            buffer.Append(range);
+
+            first = false;
+            rangeCount++;
+        }
+
+        if (buffer.Length > 0)
+        {
+            AnsiConsole.Write(new Text(buffer.ToString()));
+        }
+        if (first)
+        {
+            AnsiConsole.MarkupLine("[green]No existen filas pendientes.[/]");
+        }
+        else
+        {
+            AnsiConsole.WriteLine();
+
+            AnsiConsole.MarkupLine($"\n[grey]Segmentos mostrados: {rangeCount:N0}[/]");
+        }
+    }   
 
     private static void ShowBackOption()
     {

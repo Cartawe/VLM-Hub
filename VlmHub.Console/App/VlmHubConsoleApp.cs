@@ -151,10 +151,58 @@ public sealed class VlmHubConsoleApp
                         continue;
                     }
 
+                    try
+                    {
+                        await ConsoleUi.ShowStatusAsync(
+                            "[grey]Comprobando tabla auxiliar...[/]",
+                            () => server.EnsureAuxiliaryTableAsync(
+                                table,
+                                primaryKeyColumns,
+                                cancellationToken));
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        ConsoleUi.ShowError(exception);
+                        ConsoleUi.WaitForRetry("Presiona Enter para volver a seleccionar la columna.");
+                        continue;
+                    }
+
                     var changeColumn = false;
+                    ConsoleUi.ShowRowSelection(table, primaryKeyColumns, documentColumn, bounds);
+
+                    try
+                    {
+                        var pendingPrimaryKeys = server.GetRowsWithoutSuccessfulProcessingAsync(
+                            table,
+                            primaryKeyColumns,
+                            cancellationToken);
+                        var ranges = PrimaryKeyRangeFormatter.GroupAsync(
+                            pendingPrimaryKeys,
+                            primaryKeyColumns,
+                            cancellationToken);
+
+                        await ConsoleUi.ShowPendingPrimaryKeyRangesAsync(
+                            ranges,
+                            cancellationToken);
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        // La visualización de pendientes es informativa. Si falla,
+                        // la selección manual sigue disponible y SQL validará la
+                        // consulta real al crear selection.json.
+                        _logger.Error(
+                            "SQL",
+                            "selection.pending_ranges_failed",
+                            "No fue posible consultar las PK sin procesamiento exitoso.",
+                            exception,
+                            server: server.ServerHost);
+                        ConsoleUi.ShowWarning(
+                            "No fue posible consultar las filas pendientes. " +
+                            "Puedes continuar ingresando la selección manualmente.");
+                    }
+
                     while (!changeColumn)
                     {
-                        ConsoleUi.ShowRowSelection(table, primaryKeyColumns, documentColumn, bounds);
                         var input = ConsoleUi.PromptRowSelection();
                         if (input is null)
                         {
